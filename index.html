@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AutoCards – HTML Edition</title>
+<style>
+  :root{
+    --bg:#0b0b0b; --panel:#111827; --muted:#9ca3af; --text:#e5e7eb; --accent:#2563eb; --ok:#22c55e;
+    --gold1:#b8860b; --gold2:#ffd700; --ivory1:#faf7ef; --ivory2:#e9dfc7; --red1:#7f1d1d; --red2:#ef4444; --grey1:#6b7280; --grey2:#9ca3af;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:900px;margin:auto;padding:16px}
+  header{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px}
+  header h1{font-size:24px;margin:0;font-weight:900}
+  header .row{display:flex;gap:8px;flex-wrap:wrap}
+  button, .btn{background:#374151;border:0;color:#fff;padding:10px 12px;border-radius:10px;font-weight:700}
+  .btn-primary{background:var(--accent)}
+  .btn-ok{background:var(--ok);color:#06251a}
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tab{flex:1;text-align:center;background:#1f2937;color:#cbd5e1;padding:10px;border-radius:10px;font-weight:800}
+  .tab.active{background:#334155;color:#fff;border:1px solid #475569}
+  .panel{background:var(--panel);border:1px solid #1f2937;border-radius:14px;padding:12px}
+  label{display:block;color:#93c5fd;font-weight:700;margin-top:8px}
+  input,select{width:100%;padding:12px;border-radius:10px;border:1px solid #1f2937;background:#0b1320;color:#e5e7eb}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  @media(min-width:700px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .slot{height:130px;border-radius:10px;background:#111;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .slot.empty{background:#111827;border:1px dashed #334155;color:#334155;font-weight:900}
+  .thumb{width:100%;height:100%;object-fit:cover}
+
+  /* Carte */
+  .card{border-radius:18px;padding:6px;width:100%;max-width:520px;margin:auto}
+  .card-inner{background:rgba(255,255,255,.8);border:2px solid transparent;border-radius:14px;overflow:hidden;position:relative}
+  .card-photo{width:100%;height:220px;background:#111;object-fit:cover}
+  .card-header{padding:10px 12px}
+  .brand{font-size:18px;font-weight:900;text-transform:uppercase;color:#111827}
+  .model{font-size:16px;font-weight:700;opacity:.9;color:#111827}
+  .badge{align-self:flex-start;background:rgba(255,255,255,.75);padding:4px 8px;border-radius:6px;display:inline-block;margin-top:6px;font-weight:800;color:#111}
+  .specs{background:rgba(255,255,255,.7);padding:12px}
+  .row{display:flex;justify-content:space-between}
+  .row .l{font-weight:800;color:#374151}
+  .row .v{font-weight:700;color:#111827}
+
+  /* Thèmes rareté (fond du contour) */
+  .theme-common{background:linear-gradient(140deg,var(--grey1),var(--grey2))}
+  .theme-rare{background:linear-gradient(140deg,var(--gold1),var(--gold2))}
+  .theme-legendary{background:linear-gradient(140deg,var(--ivory1),var(--ivory2))}
+  .theme-mythic{background:linear-gradient(140deg,var(--red1),var(--red2))}
+
+  /* Bordures par rareté via CSS var */
+  .card-inner.common{border-color:#d1d5db}
+  .card-inner.rare{border-color:#f5deb3}
+  .card-inner.legendary{border-color:#c9b47e}
+  .card-inner.mythic{border-color:#fecaca}
+
+  /* Barrette supérieure & lauriers pour Légendaire (style FIFA Icône) */
+  .topbar{position:absolute;top:0;left:0;right:0;height:18px;background:rgba(255,255,255,.75);z-index:2}
+  .laurels{position:absolute;top:12px;left:0;right:0;height:30px;display:flex;justify-content:space-between;padding:0 16px;z-index:3}
+  .laurels span{width:60px;height:8px;background:#c9b47e;border-radius:8px}
+  .laurels .left{transform:rotate(-25deg)}
+  .laurels .right{transform:rotate(25deg)}
+
+  /* Pack opening overlay */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;z-index:50}
+  .overlay.show{display:flex}
+  .ring{width:min(70vw,320px);height:min(70vw,320px);border:5px solid #c9b47e;border-radius:999px;opacity:.9;animation:spin 1.6s linear infinite}
+  .halo{position:absolute;width:min(90vw,420px);height:min(90vw,420px);border:24px solid rgba(255,255,255,.25);border-radius:999px;animation:pulse 1.4s ease-in-out infinite}
+  .reveal{margin-top:8px;font-weight:900}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pulse{0%{opacity:.2}50%{opacity:.6}100%{opacity:.2}}
+
+  .footer-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+  .muted{color:var(--muted);font-size:12px;margin-top:8px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AutoCards</h1>
+    <div class="row">
+      <button id="btnExportJson" title="Exporter la collection en JSON">Export JSON</button>
+      <button id="btnExportPdf" title="Exporter en PDF (impression)">Export PDF</button>
+      <label class="btn" style="margin:0;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+        Import JSON
+        <input id="importInput" type="file" accept="application/json" hidden />
+      </label>
+      <button id="btnReset" title="Effacer la collection (localStorage)">Tout effacer</button>
+    </div>
+  </header>
+
+  <!-- Onglets -->
+  <div class="tabs">
+    <div class="tab active" data-tab="new">Nouvelle carte</div>
+    <div class="tab" data-tab="collection">Collection</div>
+  </div>
+
+  <!-- Panneau Nouvelle carte -->
+  <section class="panel" id="panel-new">
+    <label>Photo du véhicule</label>
+    <input id="photoInput" type="file" accept="image/*" capture="environment" />
+    <img id="preview" alt="" style="width:100%;max-height:260px;object-fit:cover;border-radius:12px;margin-top:8px;display:none;background:#111" />
+
+    <label>Marque</label>
+    <input id="brand" placeholder="Ex: Ferrari" />
+    <label>Modèle</label>
+    <input id="model" placeholder="Ex: 488 GTB" />
+
+    <div class="grid">
+      <div>
+        <label>Année</label>
+        <input id="year" type="number" inputmode="numeric" placeholder="Ex: 2018" />
+      </div>
+      <div>
+        <label>Moteur</label>
+        <input id="engine" placeholder="Ex: V8 biturbo" />
+      </div>
+      <div>
+        <label>Puissance (ch)</label>
+        <input id="power" type="number" inputmode="numeric" placeholder="Ex: 670" />
+      </div>
+      <div>
+        <label>V. max (km/h)</label>
+        <input id="vmax" type="number" inputmode="numeric" placeholder="Ex: 330" />
+      </div>
+    </div>
+
+    <label>0–100 km/h (s)</label>
+    <input id="zeroTo100" type="number" step="0.01" inputmode="decimal" placeholder="Ex: 3.0" />
+
+    <div class="footer-actions">
+      <button class="btn-ok" id="openPack">Ouvrir le pack 🎁</button>
+    </div>
+    <p class="muted">La rareté est déterminée aléatoirement : 75% commune (grise), 18% rare (or), 6% légendaire (style FIFA Icône), 1% mythique (rouge).</p>
+  </section>
+
+  <!-- Panneau Collection -->
+  <section class="panel" id="panel-collection" hidden>
+    <div id="collection"></div>
+  </section>
+
+  <!-- Affichage carte créée -->
+  <section id="cardView" style="margin-top:12px;display:none"></section>
+</div>
+
+<!-- Pack opening overlay -->
+<div class="overlay" id="overlay">
+  <div class="halo"></div>
+  <div class="ring"></div>
+  <div style="position:relative;z-index:60;text-align:center">
+    <div id="overlayTitle" style="font-weight:900;font-size:18px;margin-bottom:6px">Ouverture du pack…</div>
+    <div id="overlayRarity" class="reveal" style="color:#c9b47e"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- Utilitaires & “moteur” ---------- */
+const LS_KEY = 'AUTOCARDS_HTML__CARDS';
+
+const RARITIES = {
+  COMMON:'common', RARE:'rare', LEGENDARY:'legendary', MYTHIC:'mythic'
+};
+
+const rarityWeights = [
+  {key: RARITIES.COMMON, weight: 0.75},
+  {key: RARITIES.RARE, weight: 0.18},
+  {key: RARITIES.LEGENDARY, weight: 0.06},
+  {key: RARITIES.MYTHIC, weight: 0.01},
+];
+
+const rarityTheme = {
+  [RARITIES.COMMON]:   {name:'Commune',    outer:'theme-common',   inner:'common'},
+  [RARITIES.RARE]:     {name:'Rare',       outer:'theme-rare',     inner:'rare'},
+  [RARITIES.LEGENDARY]:{name:'Légendaire', outer:'theme-legendary',inner:'legendary'},
+  [RARITIES.MYTHIC]:   {name:'Mythique',   outer:'theme-mythic',   inner:'mythic'},
+};
+
+function pickRarity(){
+  const r = Math.random(); let acc = 0;
+  for(const {key, weight} of rarityWeights){ acc += weight; if(r <= acc) return key; }
+  return RARITIES.COMMON;
+}
+
+function uid(){ return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+
+function readFileAsDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(file);
+  });
+}
+
+function loadCards(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch(e){ return []; } }
+function saveCards(list){ localStorage.setItem(LS_KEY, JSON.stringify(list)); }
+
+/* ---------- UI onglets ---------- */
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(t=>{
+  t.addEventListener('click', ()=>{
+    tabs.forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const isNew = t.dataset.tab==='new';
+    document.getElementById('panel-new').hidden = !isNew;
+    document.getElementById('panel-collection').hidden = isNew;
+    if(!isNew) renderCollection();
+  });
+});
+
+/* ---------- Form / photo preview ---------- */
+const photoInput = document.getElementById('photoInput');
+const preview = document.getElementById('preview');
+let currentPhotoDataURL = null;
+
+photoInput.addEventListener('change', async (e)=>{
+  const file = e.target.files?.[0];
+  if(!file) return;
+  currentPhotoDataURL = await readFileAsDataURL(file);
+  preview.src = currentPhotoDataURL;
+  preview.style.display = 'block';
+});
+
+/* ---------- Pack opening + création carte ---------- */
+const overlay = document.getElementById('overlay');
+document.getElementById('openPack').addEventListener('click', async ()=>{
+  const brand = document.getElementById('brand').value.trim() || '—';
+  const model = document.getElementById('model').value.trim() || '—';
+  if(!currentPhotoDataURL){ alert('Ajoute une photo du véhicule.'); return; }
+
+  // détermine la rareté
+  const rarity = pickRarity();
+  const theme = rarityTheme[rarity];
+
+  // animation overlay
+  document.getElementById('overlayRarity').textContent = theme.name;
+  overlay.classList.add('show');
+
+  // petit suspense
+  await new Promise(r=>setTimeout(r, 2600));
+
+  // crée la carte et sauvegarde
+  const card = {
+    id: uid(),
+    imageData: currentPhotoDataURL,
+    brand, model,
+    year: document.getElementById('year').value.trim(),
+    engine: document.getElementById('engine').value.trim(),
+    power: document.getElementById('power').value.trim(),
+    vmax: document.getElementById('vmax').value.trim(),
+    zeroTo100: document.getElementById('zeroTo100').value.trim(),
+    rarity
+  };
+  const all = loadCards(); all.push(card); saveCards(all);
+  overlay.classList.remove('show');
+
+  // affiche la carte
+  renderCard(card);
+  // bascule onglet Collection automatiquement
+  document.querySelector('.tab[data-tab="collection"]').click();
+});
+
+/* ---------- Rendu d'une carte ---------- */
+function renderCard(card){
+  const theme = rarityTheme[card.rarity];
+  const legendaryDecor = card.rarity === RARITIES.LEGENDARY
+    ? `<div class="topbar"></div><div class="laurels"><span class="left"></span><span class="right"></span></div>`
+    : ``;
+
+  const el = document.getElementById('cardView');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="card ${theme.outer}">
+      <div class="card-inner ${theme.inner}">
+        ${legendaryDecor}
+        <img class="card-photo" src="${card.imageData}" alt="">
+        <div class="card-header">
+          <div class="brand">${escapeHtml(card.brand)}</div>
+          <div class="model">${escapeHtml(card.model)}</div>
+          <div class="badge">${theme.name}</div>
+        </div>
+        <div class="specs">
+          ${specRow('V. max', (card.vmax||'-') + ' km/h')}
+          ${specRow('0–100', (card.zeroTo100||'-') + ' s')}
+          ${specRow('Puissance', (card.power||'-') + ' ch')}
+          ${specRow('Moteur', card.engine||'-')}
+          ${specRow('Année', card.year||'-')}
+        </div>
+      </div>
+    </div>
+  `;
+  el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function specRow(l,v){ return `<div class="row"><div class="l">${l}</div><div class="v">${escapeHtml(v)}</div></div>` }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])) }
+
+/* ---------- Collection par marque ---------- */
+function renderCollection(){
+  const byBrand = {};
+  for(const c of loadCards()){
+    const b = (c.brand||'Autres').trim();
+    if(!byBrand[b]) byBrand[b] = [];
+    byBrand[b].push(c);
+  }
+  const brands = Object.keys(byBrand).sort();
+  const container = document.getElementById('collection');
+  if(!brands.length){
+    container.innerHTML = `<p class="muted">Aucune carte pour l’instant. Crée une carte dans l’onglet “Nouvelle carte”.</p>`;
+    return;
+  }
+  container.innerHTML = brands.map(brand=>{
+    const arr = byBrand[brand];
+    const placeholders = Math.max(12, arr.length);
+    const grid = Array.from({length: placeholders}).map((_,i)=>{
+      const c = arr[i];
+      if(!c) return `<div class="slot empty">—</div>`;
+      return `<div class="slot" data-id="${c.id}"><img class="thumb" src="${c.imageData}" alt=""></div>`;
+    }).join('');
+    return `
+      <h3 style="margin:12px 0 6px 2px;color:#93c5fd">${escapeHtml(brand)}</h3>
+      <div class="grid">${grid}</div>
+    `;
+  }).join('');
+
+  // clic miniature -> afficher la carte
+  container.querySelectorAll('.slot[data-id]').forEach(slot=>{
+    slot.addEventListener('click', ()=>{
+      const id = slot.getAttribute('data-id');
+      const card = loadCards().find(c=>c.id===id); if(card) renderCard(card);
+    });
+  });
+}
+
+/* ---------- Export / Import ---------- */
+document.getElementById('btnExportJson').addEventListener('click', ()=>{
+  const data = { exportedAt: new Date().toISOString(), cards: loadCards() };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'autocards_export.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+document.getElementById('btnExportPdf').addEventListener('click', ()=>{
+  // Crée une page imprimable simple (table) -> l’utilisateur peut “enregistrer en PDF”
+  const cards = loadCards();
+  const rows = cards.map(c=>`
+    <tr>
+      <td><img src="${c.imageData}" style="width:120px;height:80px;object-fit:cover;border-radius:8px"/></td>
+      <td>${escapeHtml(c.brand||'')}</td>
+      <td>${escapeHtml(c.model||'')}</td>
+      <td>${escapeHtml(c.year||'')}</td>
+      <td>${escapeHtml(c.engine||'')}</td>
+      <td>${escapeHtml(c.power||'')}</td>
+      <td>${escapeHtml(c.vmax||'')}</td>
+      <td>${escapeHtml(c.zeroTo100||'')}</td>
+      <td>${escapeHtml(c.rarity)}</td>
+    </tr>`).join('');
+  const html = `
+    <html><head><meta charset="utf-8">
+      <style>
+        body{font-family:system-ui,Arial;margin:20px}
+        table{width:100%;border-collapse:collapse}
+        th,td{border:1px solid #ccc;padding:6px;font-size:12px}
+        th{background:#f5f5f5}
+        h1{margin:0 0 10px 0}
+      </style>
+    </head>
+    <body>
+      <h1>AutoCards — Export</h1>
+      <p>Généré le ${new Date().toLocaleString()}</p>
+      <table>
+        <thead><tr>
+          <th>Photo</th><th>Marque</th><th>Modèle</th><th>Année</th>
+          <th>Moteur</th><th>Puissance</th><th>V. max</th><th>0–100</th><th>Rareté</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <script>window.onload=()=>window.print()</script>
+    </body></html>`;
+  const win = window.open('', '_blank'); win.document.write(html); win.document.close();
+});
+
+document.getElementById('importInput').addEventListener('change', async (e)=>{
+  const f = e.target.files?.[0]; if(!f) return;
+  const text = await f.text();
+  try{
+    const data = JSON.parse(text);
+    if(!Array.isArray(data.cards)) throw new Error('Format invalide');
+    saveCards(data.cards); renderCollection(); alert('Import terminé ✅');
+  }catch(err){ alert('Import impossible : ' + err.message); }
+});
+
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  if(confirm('Effacer toute la collection (localStorage) ?')){
+    localStorage.removeItem(LS_KEY);
+    document.getElementById('collection').innerHTML = '';
+    document.getElementById('cardView').style.display = 'none';
+    alert('Collection vidée.');
+  }
+});
+
+/* ---------- Démarrage ---------- */
+renderCollection();
+</script>
+</body>
+</html>
